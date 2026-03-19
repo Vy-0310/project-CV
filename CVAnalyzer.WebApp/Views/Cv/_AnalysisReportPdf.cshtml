@@ -1,0 +1,535 @@
+﻿@using System.Text.Json
+@using System.Text.Json.Nodes
+@model CVAnalyzer.WebApp.Models.Cv
+
+@{
+    Layout = null; // QUAN TRỌNG: Không dùng layout
+
+    // Parse lại toàn bộ dữ liệu (giống hệt Result.cshtml)
+    JsonNode? analysisNode = null;
+    JsonArray? categories = null;
+    JsonArray? suggestions = null;
+    JsonArray? redFlags = null;
+    JsonArray? strengths = null;
+    JsonArray? generalSuggestions = null;
+    int overallScore = 0;
+    string rating = "N/A";
+    string ratingColorClass = "rating-poor";
+
+    try
+    {
+        analysisNode = JsonNode.Parse(Model.AnalysisResult ?? "{}");
+        if (analysisNode?["jd_match_analysis"] != null)
+        {
+            overallScore = analysisNode["jd_match_analysis"]?["match_score"]?.GetValue<int>() ?? 0;
+        }
+        else
+        {
+            overallScore = analysisNode?["overall_score"]?.GetValue<int>() ?? 0;
+        }
+
+        categories = analysisNode?["categories"]?.AsArray();
+        suggestions = analysisNode?["priority_suggestions"]?.AsArray();
+        strengths = analysisNode?["strengths"]?.AsArray();
+        generalSuggestions = analysisNode?["general_suggestions"]?.AsArray();
+        redFlags = analysisNode?["red_flags"]?.AsArray();
+
+        if (overallScore >= 75) { rating = "Tốt"; ratingColorClass = "rating-good"; }
+        else if (overallScore >= 50) { rating = "Trung bình"; ratingColorClass = "rating-medium"; }
+        else { rating = "Yếu"; ratingColorClass = "rating-poor"; }
+    }
+    catch { }
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Báo cáo Phân tích CV</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        /* PDF nên là nền trắng */
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            background-color: #ffffff !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact !important; /* Bắt buộc render màu nền */
+            print-color-adjust: exact !important;
+        }
+
+        /* Tùy chỉnh màu bootstrap cho PDF (dùng !important) */
+        .text-muted {
+            color: #6c757d !important;
+        }
+
+        .bg-danger {
+            background-color: #dc3545 !important;
+        }
+
+        .bg-warning {
+            background-color: #ffc107 !important;
+        }
+
+        .bg-success {
+            background-color: #198754 !important;
+        }
+
+        .bg-danger-subtle {
+            background-color: #f8d7da !important;
+        }
+
+        .text-danger-emphasis {
+            color: #58151c !important;
+        }
+
+        .bg-success-subtle {
+            background-color: #d1e7dd !important;
+        }
+
+        .text-success-emphasis {
+            color: #0a3622 !important;
+        }
+
+        .bg-warning-subtle {
+            background-color: #fff3cd !important;
+        }
+
+        .text-warning-emphasis {
+            color: #664d03 !important;
+        }
+
+        .border-danger {
+            border-color: #dc3545 !important;
+        }
+
+        .border-success {
+            border-color: #198754 !important;
+        }
+
+        .rating-poor {
+            color: #dc3545 !important;
+        }
+
+        .rating-medium {
+            color: #ffc107 !important;
+        }
+
+        .rating-good {
+            color: #198754 !important;
+        }
+
+        /* --- 2. Các hộp tóm tắt giai đoạn (trên cùng) --- */
+        .stage-summary-box {
+            border: 1px solid #dee2e6 !important;
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            height: 100%;
+        }
+
+            .stage-summary-box .stage-title {
+                font-size: 0.9rem;
+                font-weight: 500;
+                color: #6c757d !important;
+                margin-bottom: 0.5rem;
+            }
+
+            .stage-summary-box .stage-score {
+                font-size: 1.75rem;
+                font-weight: 700;
+            }
+
+            .stage-summary-box .stage-rating {
+                font-weight: 600;
+            }
+
+        /* --- 3. Card chi tiết (cho từng giai đoạn) --- */
+        .analysis-card {
+            border-radius: 12px;
+            border: 1px solid #dee2e6 !important;
+            background-color: #ffffff !important;
+            margin-bottom: 1.5rem;
+            box-shadow: none !important; /* Tắt shadow, dùng border */
+            page-break-inside: avoid; /* Tránh ngắt trang giữa card */
+        }
+
+            .analysis-card .card-header {
+                background-color: #f8f9fa !important;
+                border-bottom: 1px solid #dee2e6 !important;
+                padding: 1rem 1.5rem;
+            }
+
+                .analysis-card .card-header h4 {
+                    margin-bottom: 0;
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                }
+
+            .analysis-card .card-body {
+                padding: 1.5rem;
+            }
+
+        /* --- 4. Sub-section (trong card chi tiết) --- */
+        .sub-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .analysis-card .card-body .sub-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .sub-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+            .sub-section-header .title {
+                font-size: 1.1rem;
+                font-weight: 600;
+            }
+
+            .sub-section-header .score {
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
+        /* Card lồng bên trong (dùng cho Red Flag) */
+        .sub-section-card {
+            border: 1px solid #dee2e6 !important;
+            background-color: #ffffff !important;
+        }
+
+            .sub-section-card .card-header {
+                padding: 0.75rem 1.25rem;
+            }
+
+            .sub-section-card .card-body {
+                padding: 1.25rem;
+            }
+
+        .progress {
+            height: 10px;
+            border-radius: 10px;
+            background-color: #e9ecef !important;
+        }
+
+        .progress-bar {
+            /* Đảm bảo màu nền được in */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* Chi tiết (bullet points) */
+        .details-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #6c757d !important;
+        }
+
+            .details-list li {
+                position: relative;
+                padding-left: 20px;
+                margin-bottom: 0.5rem;
+            }
+
+                .details-list li::before {
+                    content: "•";
+                    position: absolute;
+                    left: 0;
+                    font-size: 1.25rem;
+                    line-height: 1;
+                }
+
+        /* --- 5. Gợi ý cải thiện & Điểm mạnh --- */
+        .suggestion-priority-box {
+            border: 1px solid #dee2e6 !important;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+            page-break-inside: avoid;
+        }
+
+            .suggestion-priority-box .title {
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+
+            .suggestion-priority-box .description {
+                font-size: 0.9rem;
+                color: #6c757d !important;
+            }
+
+            .suggestion-priority-box .badge {
+                float: right;
+                font-size: 0.75rem;
+                padding: 5px 8px;
+            }
+
+        .priority-high {
+            border-left: 4px solid #dc3545 !important;
+        }
+
+        .priority-medium {
+            border-left: 4px solid #ffc107 !important;
+        }
+
+        .priority-low {
+            border-left: 4px solid #198754 !important;
+        }
+
+        /* Điểm mạnh (bullet list) */
+        .strength-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+            .strength-list li {
+                position: relative;
+                padding-left: 30px;
+                margin-bottom: 0.75rem;
+            }
+
+                .strength-list li::before {
+                    content: "✓";
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 20px;
+                    height: 20px;
+                    background-color: #d1e7dd !important; /* Phải dùng !important */
+                    color: #198754 !important;
+                    border-radius: 50%;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    font-weight: bold;
+                    font-size: 0.9rem;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+    </style>
+</head>
+<body class="container my-4">
+
+    <div class="analysis-card mb-4">
+        <div class="card-body p-4 p-md-5">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+            </div>
+            <hr />
+            <div class="row align-items-center">
+                <div class="col-4 text-center">
+                    <h1 class="display-1 fw-bold @ratingColorClass" style="font-size: 6rem;">@overallScore</h1>
+                    <h4 class="fw-normal @ratingColorClass">@rating</h4>
+                </div>
+                <div class="col-8">
+                    <div class="row g-3">
+                        @if (categories != null)
+                        {
+                            @foreach (var category in categories)
+                            {
+                                var catScore = category?["score"]?.GetValue<int>() ?? 0;
+                                var catMax = category?["max_score"]?.GetValue<int>() ?? 1;
+                                var catRating = "Yếu";
+                                var catRatingColor = "rating-poor";
+                                if (catScore >= catMax * 0.75) { catRating = "Tốt"; catRatingColor = "rating-good"; }
+                                else if (catScore >= catMax * 0.5) { catRating = "Trung bình"; catRatingColor = "rating-medium"; }
+
+                                <div class="col-6">
+                                    <div class="stage-summary-box">
+                                        <div class="stage-title">@category?["category_name"] (@catMax)</div>
+                                        <div class="stage-score @catRatingColor">@catScore/@catMax</div>
+                                        <div class="stage-rating @catRatingColor">@catRating</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="analysis-card">
+        <div class="card-header">
+            <h4 class="d-flex justify-content-between">
+                Giai đoạn 1: Tự động phát hiện
+                <span class="rating-good">Đã phân loại</span>
+            </h4>
+        </div>
+        <div class="card-body">
+            <ul class="strength-list">
+                <li>Phát hiện cấp độ: @(analysisNode?["detected_level"]?.GetValue<string>() ?? "N/A")</li>
+                <li>Phát hiện ngành nghề: @(analysisNode?["detected_industry"]?.GetValue<string>() ?? "N/A")</li>
+                <li>Phát hiện tên ứng viên: @(analysisNode?["applicant_name"]?.GetValue<string>() ?? "N/A")</li>
+            </ul>
+        </div>
+    </div>
+
+    @if (categories != null)
+    {
+        @foreach (var category in categories)
+        {
+            var catScore = category?["score"]?.GetValue<int>() ?? 0;
+            var catMax = category?["max_score"]?.GetValue<int>() ?? 1;
+            var catRatingColor = "rating-poor";
+            if (catScore >= catMax * 0.75) { catRatingColor = "rating-good"; }
+            else if (catScore >= catMax * 0.5) { catRatingColor = "rating-medium"; }
+
+            <div class="analysis-card">
+                <div class="card-header">
+                    <h4 class="d-flex justify-content-between">
+                        @category?["category_name"] (@category?["max_score"] điểm)
+                        <span class="@catRatingColor">@category?["score"]/@category?["max_score"]</span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    @if (category?["criteria"] is JsonArray criteria && criteria.Any())
+                    {
+                        @foreach (var criterion in criteria)
+                        {
+                            var critScore = criterion?["score"]?.GetValue<int>() ?? 0;
+                            var critMax = criterion?["max_score"]?.GetValue<int>() ?? 1;
+                            var critPercent = (critMax > 0) ? (critScore * 100 / critMax) : 0;
+                            var critColor = "danger";
+                            if (critPercent >= 75) { critColor = "success"; }
+                            else if (critPercent >= 50) { critColor = "warning"; }
+
+                            <div class="sub-section">
+                                <div class="sub-section-header">
+                                    <span class="title">@criterion?["name"]</span>
+                                    <span class="score @(critColor == "danger" ? "rating-poor" : (critColor == "warning" ? "rating-medium" : "rating-good"))">
+                                        @critScore/@critMax
+                                    </span>
+                                </div>
+                                <div class="progress" role="progressbar">
+                                    <div class="progress-bar bg-@critColor" style="width: @critPercent%"></div>
+                                </div>
+                                <ul class="details-list">
+                                    <li>@criterion?["justification"]</li>
+                                </ul>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    }
+
+    <div class="analysis-card">
+        <div class="card-header">
+            <h4>Phân tích chi tiết & Gợi ý cải thiện</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-12">
+                    @{
+                        bool hasRedFlags = redFlags != null && redFlags.Any();
+                    }
+                    <h5 class="fw-bold mb-3">Trợ lý Xác minh</h5>
+                    <div class="card sub-section-card @(hasRedFlags ? "border-danger" : "border-success") mb-4">
+                        <div class="card-header @(hasRedFlags ? "bg-danger-subtle text-danger-emphasis" : "bg-success-subtle text-success-emphasis") d-flex align-items-center">
+                            <h6 class="mb-0 fw-bold">
+                                @(hasRedFlags ? "Đã phát hiện điểm bất thường" : "Không phát hiện điểm bất thường")
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            @if (hasRedFlags)
+                            {
+                                @foreach (var flag in redFlags)
+                                {
+                                    <p class="mb-1"><strong>@flag?["type"]:</strong> @flag?["details"]</p>
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0">Không tìm thấy điểm bất thường.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="row">
+                <div class="col-7">
+                    <h5 class="fw-bold mb-3">Gợi ý cải thiện ưu tiên</h5>
+                    @if (suggestions != null && suggestions.Any())
+                    {
+                        @foreach (var suggestion in suggestions)
+                        {
+                            <div class="suggestion-priority-box priority-medium">
+                                <span class="badge bg-warning-subtle text-warning-emphasis">Trung bình</span>
+                                <div class="title">Gợi ý</div>
+                                <div class="description">@suggestion.ToString()</div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="col-5">
+                    <h5 class="fw-bold mb-3">Điểm mạnh</h5>
+                    @if (strengths != null && strengths.Any())
+                    {
+                        <ul class="strength-list">
+                            @foreach (var strength in strengths)
+                            {
+                                <li>@strength</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="row">
+                <div class="col-12">
+                    <h5 class="fw-bold mb-3">Gợi ý chung</h5>
+                    @if (generalSuggestions != null && generalSuggestions.Any())
+                    {
+                        <ul class="details-list">
+                            @foreach (var genSuggestion in generalSuggestions)
+                            {
+                                <li>@genSuggestion</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="analysis-card">
+        <div class="card-header">
+            <h4><i class="bi bi-mic-fill"></i> AI Chuẩn bị Phỏng vấn</h4>
+        </div>
+        <div class="card-body">
+            <h6 class="fw-bold mt-4">Câu hỏi về Điểm mạnh (từ CV):</h6>
+            <ul class="strength-list">
+                <li>"Tôi thấy bạn có kinh nghiệm về [Một điểm mạnh AI tìm thấy...]. Hãy kể về dự án bạn tự hào nhất khi dùng kỹ năng này?"</li>
+            </ul>
+            <h6 class="fw-bold mt-4">Câu hỏi về Điểm yếu (từ Gợi ý):</h6>
+            <ul class="details-list">
+                <li>"CV của bạn chưa nêu bật được kết quả (Impact). Bạn có thể mô tả lại công việc tại [Công ty X] theo hướng bạn đã tạo ra giá trị gì cụ thể không?"</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="text-center text-muted small mt-5">
+        Báo cáo được tạo bởi CV Analyzer
+    </div>
+
+</body>
+</html>

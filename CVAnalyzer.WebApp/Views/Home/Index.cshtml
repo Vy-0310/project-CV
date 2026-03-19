@@ -1,0 +1,300 @@
+﻿@{
+    ViewData["Title"] = "Trang Chủ";
+}
+
+<style>
+    /* Hero Section */
+    .hero-section {
+        position: relative;
+        overflow: hidden;
+        padding: 60px 0 80px;
+        /* Giữ gradient mờ nhẹ */
+        background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 40%), radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.1), transparent 40%);
+    }
+
+    .btn-glow {
+        background: var(--primary-gradient);
+        border: none;
+        color: white;
+        padding: 12px 32px;
+        border-radius: 50px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.5);
+    }
+
+        .btn-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px -10px rgba(99, 102, 241, 0.6);
+            color: white;
+        }
+
+    /* === SỬA LỖI Ở ĐÂY: Dùng biến thay vì màu cứng === */
+
+    /* Step Cards */
+    .step-card {
+        padding: 2rem;
+        border-radius: 1rem;
+        transition: transform 0.3s ease;
+        height: 100%;
+        position: relative;
+        z-index: 1;
+        /* Thay background: #fff thành biến */
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent); /* Thêm viền mờ */
+    }
+
+    .step-icon-wrapper {
+        width: 70px;
+        height: 70px;
+        /* Thay background cứng thành biến nền body */
+        background-color: var(--bs-body-bg);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        font-size: 1.75rem;
+        color: #6366f1;
+        transition: all 0.3s ease;
+    }
+
+    .step-card:hover .step-icon-wrapper {
+        background: var(--primary-gradient);
+        color: white;
+        transform: rotateY(180deg);
+    }
+
+        .step-card:hover .step-icon-wrapper i {
+            transform: rotateY(-180deg);
+            display: inline-block;
+        }
+
+    /* Feature Cards */
+    .feature-card {
+        /* Thay background: white thành biến */
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        height: 100%;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+        .feature-card:hover {
+            border-color: transparent;
+            transform: translateY(-5px);
+            /* Shadow cũng cần chỉnh lại trong site.css hoặc dùng mặc định */
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+        }
+
+    /* Chỉnh lại icon box cho nổi bật trên nền tối */
+    .feature-icon-box {
+        width: 50px;
+        height: 50px;
+        background: rgba(99, 102, 241, 0.1); /* Màu tím trong suốt */
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6366f1;
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Testimonial */
+    .testimonial-card {
+        /* Chỉnh lại gradient để hỗ trợ cả 2 theme */
+        background: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 2rem;
+        padding: 3rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        position: relative;
+    }
+
+    .quote-icon {
+        position: absolute;
+        top: 20px;
+        left: 30px;
+        font-size: 4rem;
+        opacity: 0.1;
+        color: var(--bs-body-color); /* Đổi màu icon quote theo màu chữ */
+        font-family: serif;
+    }
+
+    .avatar-ring {
+        padding: 3px;
+        background: var(--primary-gradient);
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .avatar-img {
+        border: 3px solid var(--bs-tertiary-bg); /* Viền ảnh theo màu nền card */
+        border-radius: 50%;
+    }
+</style>
+
+<div class="hero-section text-center">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <span class="badge bg-white text-primary border rounded-pill px-3 py-2 mb-3 fw-bold text-uppercase shadow-sm" style="letter-spacing: 1px; font-size: 0.75rem;">
+                    ✨ AI-Powered Resume Builder
+                </span>
+                <h1 class="display-3 fw-bolder mb-4" style="line-height: 1.2;">
+                    Biến CV của bạn thành <br />
+                    <span class="text-gradient">Lợi thế cạnh tranh</span>
+                </h1>
+                <p class="lead text-muted mb-5 mx-auto" style="max-width: 700px;">
+                    Sử dụng sức mạnh của trí tuệ nhân tạo để phân tích sâu, tối ưu hóa nội dung, và tạo ra một hồ sơ ấn tượng giúp bạn lọt vào "mắt xanh" của nhà tuyển dụng hàng đầu.
+                </p>
+
+                <div class="d-flex justify-content-center gap-3">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <a asp-controller="Cv" asp-action="Upload" class="btn btn-glow btn-lg">
+                            <i class="bi bi-rocket-takeoff me-2"></i>Bắt đầu phân tích
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-controller="Auth" asp-action="Register" class="btn btn-glow btn-lg">
+                            <i class="bi bi-person-plus me-2"></i>Tạo tài khoản miễn phí
+                        </a>
+                        <a href="#how-it-works" class="btn btn-outline-secondary btn-lg rounded-pill px-4 border-2 fw-bold bg-white">
+                            Tìm hiểu thêm
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="process-section py-5" id="how-it-works">
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h6 class="text-primary fw-bold text-uppercase">Quy trình làm việc</h6>
+            <h2 class="fw-bold display-6">Chỉ với 3 bước đơn giản</h2>
+        </div>
+        <div class="row g-4 position-relative">
+            <div class="col-md-4">
+                <div class="step-card text-center">
+                    <div class="step-icon-wrapper">
+                        <i class="bi bi-cloud-arrow-up-fill"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">1. Tải lên CV</h4>
+                    <p class="text-muted">Hỗ trợ định dạng PDF, DOCX và hình ảnh. Hệ thống xử lý bảo mật và nhanh chóng.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="step-card text-center">
+                    <div class="step-icon-wrapper" style="color: #ec4899;">
+                        <i class="bi bi-cpu-fill"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">2. AI Phân tích</h4>
+                    <p class="text-muted">Thuật toán quét từ khóa, cấu trúc và chấm điểm CV so với yêu cầu thị trường.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="step-card text-center">
+                    <div class="step-icon-wrapper" style="color: #10b981;">
+                        <i class="bi bi-stars"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">3. Nhận kết quả</h4>
+                    <p class="text-muted">Nhận báo cáo chi tiết các điểm cần cải thiện và gợi ý sửa đổi ngay lập tức.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container px-4 py-5" id="features">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold display-6 mb-3">Tính năng <span class="text-gradient">Đột phá</span></h2>
+        <p class="text-muted">Mọi công cụ bạn cần để chinh phục nhà tuyển dụng</p>
+    </div>
+
+    <div class="row g-4 row-cols-1 row-cols-md-2 row-cols-lg-3">
+        <div class="col">
+            <div class="feature-card">
+                <div class="feature-icon-box">
+                    <i class="bi bi-search"></i>
+                </div>
+                <h5 class="fw-bold mb-3">Phân tích chuyên sâu</h5>
+                <p class="text-muted mb-0">Không chỉ kiểm tra lỗi chính tả, AI đánh giá cách dùng từ, tone giọng và độ phù hợp với JD (Job Description).</p>
+            </div>
+        </div>
+        <div class="col">
+            <div class="feature-card">
+                <div class="feature-icon-box text-warning">
+                    <i class="bi bi-lightbulb"></i>
+                </div>
+                <h5 class="fw-bold mb-3">Gợi ý thông minh</h5>
+                <p class="text-muted mb-0">Hệ thống đề xuất các từ khóa "ăn điểm" và các kỹ năng bạn nên bổ sung để tăng mức lương mong đợi.</p>
+            </div>
+        </div>
+        <div class="col">
+            <div class="feature-card">
+                <div class="feature-icon-box text-success">
+                    <i class="bi bi-file-earmark-richtext"></i>
+                </div>
+                <h5 class="fw-bold mb-3">Trình tạo CV ATS</h5>
+                <p class="text-muted mb-0">Tạo CV chuẩn ATS (Application Tracking System) giúp hồ sơ của bạn không bị loại bởi máy lọc tự động.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="testimonial-card text-center">
+                <span class="quote-icon">“</span>
+                <div class="mb-4">
+                    <div class="avatar-ring">
+                        <img src="https://i.pravatar.cc/100?u=a042581f4e29026704d" alt="User avatar" width="80" height="80" class="avatar-img">
+                    </div>
+                </div>
+                <h4 class="fst-italic mb-4 lh-base fw-normal">
+                    "Công cụ này thực sự thay đổi cuộc chơi. Các gợi ý của AI cực kỳ sắc bén, giúp tôi nhận ra những điểm yếu trong CV cũ mà tôi chưa bao giờ để ý. Tôi đã nhận được offer chỉ sau 2 ngày!"
+                </h4>
+                <div>
+                    <h6 class="fw-bold mb-1">Trần Văn An</h6>
+                    <small class="text-muted text-uppercase fw-bold" style="letter-spacing: 1px;">Senior Software Engineer</small>
+                    <div class="text-warning mt-2">
+                        <i class="bi bi-star-fill"></i>
+                        <i class="bi bi-star-fill"></i>
+                        <i class="bi bi-star-fill"></i>
+                        <i class="bi bi-star-fill"></i>
+                        <i class="bi bi-star-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container py-5 mb-5">
+    <div class="p-5 rounded-4 text-center text-white" style="background: var(--primary-gradient); box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.4);">
+        <h2 class="fw-bold mb-3">Sẵn sàng nâng cấp sự nghiệp?</h2>
+        <p class="lead mb-4 opacity-75">Đừng để CV cản trở tiềm năng của bạn. Thử ngay hôm nay.</p>
+
+        @if (User.Identity == null || !User.Identity.IsAuthenticated)
+        {
+            <a asp-controller="Auth" asp-action="Register" class="btn btn-light text-primary fw-bold btn-lg px-5 rounded-pill shadow-sm">
+                Bắt đầu ngay <i class="bi bi-arrow-right ms-2"></i>
+            </a>
+        }
+        else
+        {
+            <a asp-controller="Cv" asp-action="Upload" class="btn btn-light text-primary fw-bold btn-lg px-5 rounded-pill shadow-sm">
+                Tải lên CV ngay <i class="bi bi-arrow-right ms-2"></i>
+            </a>
+        }
+    </div>
+</div>

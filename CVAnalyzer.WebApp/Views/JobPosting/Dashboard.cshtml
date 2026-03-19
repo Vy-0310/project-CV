@@ -1,0 +1,133 @@
+﻿@using System.Text.Json.Nodes
+@model CVAnalyzer.WebApp.Models.JobPosting
+
+@{
+    ViewData["Title"] = "Dashboard: " + Model.Title;
+}
+
+<div class="container-fluid my-4">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <div class="row g-4">
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header p-3">
+                    <h4 class="mb-0 fw-bold">@Model.Title</h4>
+                </div>
+                <div class="card-body p-4">
+
+                    <h5 class="fw-semibold">Upload CV Hàng Loạt</h5>
+                    <p class="text-muted small">Kéo thả hoặc chọn nhiều file CV. AI sẽ tự động chấm điểm từng CV dựa trên JD của vị trí này.</p>
+
+                    <form asp-controller="Cv" asp-action="BatchUpload" method="post" enctype="multipart/form-data" class="border p-3 rounded-3 bg-light">
+                        <input type="hidden" name="jobPostingId" value="@Model.Id" />
+
+                        <div class="mb-3">
+                            <label for="cvFiles" class="form-label">Chọn file CV (cho phép chọn nhiều file):</label>
+                            <input type="file" class="form-control form-control-lg" name="cvFiles" id="cvFiles" multiple required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-cloud-arrow-up-fill me-2"></i> Bắt đầu Phân tích Hàng loạt
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <h5 class="fw-semibold">Mô tả Công việc (JD)</h5>
+                    <textarea class="form-control" rows="10" readonly>@Model.JobDescriptionText</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header p-3 d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0 fw-bold">Bảng Xếp Hạng Ứng Viên (@Model.Cvs.Count)</h4>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">
+                        <i class="bi bi-arrow-clockwise"></i> Cập nhật
+                    </button>
+                </div>
+                <div class="card-body p-0">
+
+                    @if (!Model.Cvs.Any())
+                    {
+                        <div class="text-center p-5">
+                            <i class="bi bi-person-x-fill display-3 text-muted"></i>
+                            <h4 class="mt-3">Chưa có ứng viên nào.</h4>
+                            <p class="text-muted">Hãy sử dụng form bên cạnh để upload CV hàng loạt.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        var sortedCvs = Model.Cvs.Select(cv =>
+                        {
+                            int score = 0;
+                            try
+                            {
+                                var node = JsonNode.Parse(cv.AnalysisResult ?? "{}");
+                                score = node?["jd_match_analysis"]?["match_score"]?.GetValue<int>() ?? node?["overall_score"]?.GetValue<int>() ?? 0;
+                            }
+                            catch { }
+                            return new { Cv = cv, Score = score };
+                        })
+                        .OrderByDescending(x => x.Score)
+                        .ToList();
+
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col" class="ps-4">Xếp hạng</th>
+                                        <th scope="col">Ứng viên (Tên file)</th>
+                                        <th scope="col">Điểm (Score)</th>
+                                        <th scope="col">Ngày nộp</th>
+                                        <th scope="col" class="pe-4">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (var i = 0; i < sortedCvs.Count; i++)
+                                    {
+                                        var item = sortedCvs[i];
+                                        string scoreClass = item.Score >= 75 ? "text-success" : (item.Score >= 50 ? "text-warning" : "text-danger");
+
+                                        <tr>
+                                            <td class="ps-4">
+                                                <span class="fw-bold fs-5">#@(i + 1)</span>
+                                            </td>
+                                            <td class="fw-semibold">
+                                                @item.Cv.FileName
+                                            </td>
+                                            <td class="fw-bold fs-5 @scoreClass">
+                                                @item.Score / 100
+                                            </td>
+                                            <td class="text-muted small">
+                                                @item.Cv.UploadedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                                            </td>
+                                            <td class="pe-4">
+                                                <a asp-controller="Cv" asp-action="Result" asp-route-id="@item.Cv.Id" class="btn btn-outline-primary btn-sm" target="_blank">
+                                                    Xem Báo cáo
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

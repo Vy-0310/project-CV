@@ -1,0 +1,1107 @@
+﻿@using System.Text.Json
+@using System.Text.Json.Nodes
+@model CVAnalyzer.WebApp.Models.Cv
+
+@{
+    ViewData["Title"] = "Báo cáo Phân tích CV Chi tiết";
+    JsonNode? analysisNode = null;
+    string? parseError = null;
+    bool isJdAnalysis = false;
+
+    // --- Khai báo một lần tất cả các biến có thể dùng ---
+    string? analysisSummary = null;
+    JsonArray? categories = null;
+    JsonArray? suggestions = null;
+    JsonArray? redFlags = null;
+    JsonArray? strengths = null;
+    JsonArray? generalSuggestions = null;
+    int overallScore = 0;
+    string rating = "N/A";
+    string ratingClass = "medium";
+    string ratingColorClass = "rating-medium";
+    try
+    {
+        analysisNode = JsonNode.Parse(Model.AnalysisResult ?? "{}");
+        if (analysisNode?["jd_match_analysis"] != null)
+        {
+            isJdAnalysis = true;
+            overallScore = analysisNode["jd_match_analysis"]?["match_score"]?.GetValue<int>() ?? 0;
+            analysisSummary = analysisNode["jd_match_analysis"]?["summary"]?.GetValue<string>();
+        }
+        else
+        {
+            overallScore = analysisNode?["overall_score"]?.GetValue<int>() ?? 0;
+            analysisSummary = analysisNode?["analysis_summary"]?.GetValue<string>();
+        }
+
+        categories = analysisNode?["categories"]?.AsArray();
+        suggestions = analysisNode?["priority_suggestions"]?.AsArray();
+        strengths = analysisNode?["strengths"]?.AsArray();
+        generalSuggestions = analysisNode?["general_suggestions"]?.AsArray();
+
+        // Lấy dữ liệu Red Flags
+        redFlags = analysisNode?["red_flags"]?.AsArray();
+        // Xác định Rating
+        if (overallScore >= 75)
+        {
+            rating = "Tốt";
+            ratingClass = "good"; ratingColorClass = "rating-good";
+        }
+        else if (overallScore >= 50)
+        {
+            rating = "Trung bình";
+            ratingClass = "medium"; ratingColorClass = "rating-medium";
+        }
+        else
+        {
+            rating = "Yếu";
+            ratingClass = "poor"; ratingColorClass = "rating-poor";
+        }
+    }
+    catch (JsonException ex)
+    {
+        parseError = $"Lỗi parse JSON: {ex.Message}. Dữ liệu thô: {Model.AnalysisResult}";
+    }
+}
+
+<div class="container my-4">
+
+    @if (parseError != null)
+    {
+        <div class="alert alert-danger">
+            <h4><i class="bi bi-file-earmark-excel"></i> Lỗi Phân tích!</h4>
+            <p>Không thể đọc kết quả. Định dạng dữ liệu AI trả về không mong muốn.</p>
+            <hr>
+            <p class="mb-0"><code>@parseError</code></p>
+        </div>
+    }
+    else if (analysisNode != null)
+    {
+        <div class="analysis-card shadow-sm mb-4">
+            <div class="card-body p-4 p-md-5">
+
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <h2 class="fw-bold mb-1">Kết quả phân tích CV - @(analysisNode?["applicant_name"]?.GetValue<string>() ?? Model.FileName)</h2>
+                        <p class="text-muted">CV đạt @overallScore% theo Ma trận Phân tích</p>
+                    </div>
+                    <div class="text-end">
+                        <span class="d-block text-muted small">Cấp độ</span>
+                        <span class="d-block fw-bold">@(analysisNode?["detected_level"]?.GetValue<string>() ?? "N/A")</span>
+                        <span class="d-block text-muted small mt-2">Ngành nghề</span>
+                        <span class="d-block fw-bold">@(analysisNode?["detected_industry"]?.GetValue<string>() ?? Model.JobCategory ?? "N/A")</span>
+                    </div>
+                </div>
+
+                <hr />
+
+                <div class="row align-items-center">
+                    <div class="col-lg-4 text-center">
+                        <div class="mx-auto" style="position: relative; width: 180px; height: 180px;">
+                            <canvas id="mainScoreChart"></canvas>
+                            <div class="d-flex flex-column justify-content-center h-100" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; font-size: 2.5rem; font-weight: 700;">
+                                <span class="@ratingColorClass">@overallScore<small class='text-muted fs-6'>/100</small></span>
+                                <span class="fs-6 fw-normal @ratingColorClass" style="margin-top: -8px;">@rating</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-8">
+                        <div class="row g-3">
+
+                            @if (categories != null)
+                            {
+                                @foreach (var category in categories)
+                                {
+                                    var catScore = category?["score"]?.GetValue<int>() ?? 0;
+                                    var catMax = category?["max_score"]?.GetValue<int>() ?? 1;
+                                    var catRating = "Yếu";
+                                    var catRatingColor = "rating-poor";
+                                    if (catScore >= catMax * 0.75) { catRating = "Tốt"; catRatingColor = "rating-good"; }
+                                    else if (catScore >= catMax * 0.5) { catRating = "Trung bình"; catRatingColor = "rating-medium"; }
+
+                                    <div class="col-md-6">
+                                        <div class="stage-summary-box">
+                                            <div class="stage-title">@category?["category_name"] (@catMax)</div>
+                                            <div class="stage-score @catRatingColor">@catScore/@catMax</div>
+                                            <div class="stage-rating @catRatingColor">@catRating</div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="analysis-card">
+            <div class="card-header">
+                <h4 class="d-flex justify-content-between">
+                    Giai đoạn 1: Tự động phát hiện
+                    <span class="rating-good">Đã phân loại</span>
+                </h4>
+            </div>
+            <div class="card-body">
+                <ul class="strength-list">
+                    <li>Phát hiện cấp độ: @(analysisNode?["detected_level"]?.GetValue<string>() ?? "N/A")</li>
+                    <li>Phát hiện ngành nghề: @(analysisNode?["detected_industry"]?.GetValue<string>() ?? Model.JobCategory ?? "N/A")</li>
+                    <li>Phát hiện tên ứng viên: @(analysisNode?["applicant_name"]?.GetValue<string>() ?? "N/A")</li>
+                </ul>
+            </div>
+        </div>
+
+        @if (categories != null)
+        {
+            @foreach (var category in categories)
+            {
+                var catScore = category?["score"]?.GetValue<int>() ?? 0;
+                var catMax = category?["max_score"]?.GetValue<int>() ?? 1;
+                var catRatingColor = "rating-poor";
+                if (catScore >= catMax * 0.75) { catRatingColor = "rating-good"; }
+                else if (catScore >= catMax * 0.5) { catRatingColor = "rating-medium"; }
+
+                <div class="analysis-card">
+                    <div class="card-header">
+                        <h4 class="d-flex justify-content-between">
+                            @category?["category_name"] (@category?["max_score"] điểm)
+                            <span class="@catRatingColor">@category?["score"]/@category?["max_score"]</span>
+                        </h4>
+                    </div>
+                    <div class="card-body">
+
+                        @if (category?["criteria"] is JsonArray criteria && criteria.Any())
+                        {
+                            @foreach (var criterion in criteria)
+                            {
+                                var critScore = criterion?["score"]?.GetValue<int>() ?? 0;
+                                var critMax = criterion?["max_score"]?.GetValue<int>() ?? 1;
+                                var critPercent = (critMax > 0) ? (critScore * 100 / critMax) : 0;
+                                var critColor = "danger";
+                                if (critPercent >= 75) { critColor = "success"; }
+                                else if (critPercent >= 50) { critColor = "warning"; }
+
+                                <div class="sub-section">
+                                    <div class="sub-section-header">
+                                        <span class="title">@criterion?["name"]</span>
+                                        <span class="score @(critColor == "danger" ? "rating-poor" : (critColor == "warning" ? "rating-medium" : "rating-good"))">
+                                            @critScore/@critMax
+                                        </span>
+                                    </div>
+                                    <div class="progress" role="progressbar" aria-valuenow="@critPercent" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar bg-@critColor" style="width: @critPercent%"></div>
+                                    </div>
+                                    <ul class="details-list">
+                                        <li>@criterion?["justification"]</li>
+                                    </ul>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        }
+
+
+        <div class="analysis-card">
+            <div class="card-header">
+                <h4>Phân tích chi tiết & Gợi ý cải thiện</h4>
+            </div>
+            <div class="card-body">
+
+                <div class="row">
+                    <div class="col-12">
+                        @{
+                            bool hasRedFlags = redFlags != null && redFlags.Any();
+                        }
+
+                        <h5 class="fw-bold mb-3">Trợ lý Xác minh</h5>
+                        <div class="card sub-section-card @(hasRedFlags ? "border-danger" : "border-success") mb-4">
+                            <div class="card-header @(hasRedFlags ? "bg-danger-subtle text-danger-emphasis" : "bg-success-subtle text-success-emphasis") d-flex align-items-center">
+                                @if (hasRedFlags)
+                                {
+                                    <i class="bi bi-flag-fill fs-5 me-2"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-shield-check-fill fs-5 me-2"></i>
+                                }
+                                <h6 class="mb-0 fw-bold">
+                                    @(hasRedFlags ? "Đã phát hiện điểm bất thường" : "Không phát hiện điểm bất thường")
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                @if (hasRedFlags)
+                                {
+                                    @foreach (var flag in redFlags)
+                                    {
+                                        <div class="mb-3">
+                                            @if (flag is JsonObject) // KIỂM TRA NẾU "flag" LÀ MỘT OBJECT
+                                            {
+                                                <p class="mb-1"><strong>@flag?["type"]:</strong> @flag?["details"]</p>
+                                                @if (flag?["verification_step"] != null)
+                                                {
+                                                    <div class="alert alert-warning mt-2 mb-0 p-2">
+                                                        <small><i class="bi bi-patch-question-fill me-2"></i><strong>Gợi ý:</strong> @flag["verification_step"]</small>
+                                                    </div>
+                                                }
+                                            }
+                                            else // Nếu "flag" chỉ là MỘT STRING (dữ liệu cũ)
+                                            {
+                                                <p class="mb-1"><strong>Cảnh báo:</strong> @flag.ToString()</p>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0">Tuyệt vời! AI đã rà soát và không tìm thấy điểm nào đáng ngờ (như mâu thuẫn thời gian, thông tin phóng đại...) trong hồ sơ của bạn.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="row">
+                    <div class="col-lg-7">
+                        <h5 class="fw-bold mb-3">Gợi ý cải thiện ưu tiên</h5>
+                        @if (suggestions != null && suggestions.Any())
+                        {
+                            var suggestionIndex = 0;
+                            @foreach (var suggestion in suggestions)
+                            {
+                                var pClass = "medium";
+                                var pBadge = "bg-warning-subtle text-warning-emphasis";
+
+                                string? suggestionType = null;
+                                string? suggestionText = null;
+                                string? originalText = null;
+                                try
+                                {
+                                    suggestionType = suggestion?["type"]?.GetValue<string>();
+                                    suggestionText = suggestion?["suggestion"]?.GetValue<string>();
+                                    originalText = suggestion?["original_text"]?.GetValue<string>();
+                                }
+                                catch (InvalidOperationException)
+                                {
+                                    suggestionType = "ADD_DATA";
+                                    suggestionText = suggestion.ToString();
+                                    originalText = null;
+                                }
+
+                                if (string.IsNullOrEmpty(suggestionText))
+                                {
+                                    suggestionText = suggestion.ToString();
+                                    suggestionType = "ADD_DATA";
+                                }
+
+                                <div class="suggestion-priority-box priority-@pClass">
+                                    <span class="badge @pBadge">Trung bình</span>
+                                    <div class="title">Gợi ý</div>
+                                    <div class="description" id="original-text-@suggestionIndex">
+                                        @suggestionText
+                                    </div>
+
+                                    @if (suggestionType == "REWRITE_WEAK_SENTENCE" && !string.IsNullOrEmpty(originalText))
+                                    {
+                                        <div class="text-end mt-2">
+                                            <button class="btn btn-primary btn-sm btn-ai-rewrite"
+                                                    data-index="@suggestionIndex"
+                                                    data-original-text="@originalText">
+                                                <i class="bi bi-magic"></i> Viết lại câu văn yếu
+                                            </button>
+                                        </div>
+                                        <div class="ai-rewrite-result mt-3" id="rewrite-result-@suggestionIndex" style="display: none;"></div>
+                                    }
+                                </div>
+                                suggestionIndex++;
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">Không có gợi ý cải thiện ưu tiên nào.</p>
+                        }
+                    </div>
+
+                    <div class="col-lg-5">
+                        <h5 class="fw-bold mb-3">Điểm mạnh</h5>
+                        @if (strengths != null && strengths.Any())
+                        {
+                            <ul class="strength-list">
+                                @foreach (var strength in strengths)
+                                {
+                                    <li>@strength</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="card sub-section-card border-danger">
+                                <div class="card-body text-center text-danger-emphasis">
+                                    <i class="bi bi-x-circle-fill fs-4"></i>
+                                    <p class="mb-0 mt-2">Không tìm thấy điểm mạnh nổi bật.</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+
+                <hr class="my-4">
+
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="fw-bold mb-3">Gợi ý chung</h5>
+                        @if (generalSuggestions != null && generalSuggestions.Any())
+                        {
+                            <ul class="details-list">
+                                @foreach (var genSuggestion in generalSuggestions)
+                                {
+                                    <li>@genSuggestion</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Không có gợi ý chung nào.</p>
+                        }
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="analysis-card">
+            <div class="card-header">
+                <h4><i class="bi bi-mic-fill text-primary me-2"></i> AI Chuẩn bị Phỏng vấn</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Dựa trên phân tích CV của bạn, đây là 3 câu hỏi phỏng vấn thực tế nhất:</p>
+
+                @{
+                    var interviewQuestions = analysisNode?["interview_questions"];
+                }
+
+                @if (interviewQuestions != null)
+                {
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-success"><i class="bi bi-star-fill me-2"></i>Câu hỏi về Điểm mạnh:</h6>
+                        <div class="p-3 bg-success-subtle text-success-emphasis rounded border border-success-subtle">
+                            <i class="bi bi-quote fs-4 me-2 opacity-50"></i>
+                            <span class="fst-italic fw-medium">@((string?)interviewQuestions["strength_question"])</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-warning-emphasis"><i class="bi bi-exclamation-triangle-fill me-2"></i>Câu hỏi về Điểm yếu / Thử thách:</h6>
+                        <div class="p-3 bg-warning-subtle text-warning-emphasis rounded border border-warning-subtle">
+                            <i class="bi bi-quote fs-4 me-2 opacity-50"></i>
+                            <span class="fst-italic fw-medium">@((string?)interviewQuestions["weakness_question"])</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <h6 class="fw-bold text-danger"><i class="bi bi-flag-fill me-2"></i>Câu hỏi về Red Flag / Định hướng:</h6>
+                        <div class="p-3 bg-danger-subtle text-danger-emphasis rounded border border-danger-subtle">
+                            <i class="bi bi-quote fs-4 me-2 opacity-50"></i>
+                            <span class="fst-italic fw-medium">@((string?)interviewQuestions["red_flag_question"])</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        Dữ liệu câu hỏi phỏng vấn chưa có sẵn cho CV này. Vui lòng tải lại CV hoặc sử dụng tính năng "Chấm điểm CV khác" để AI tạo bộ câu hỏi mới.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="analysis-card">
+            <div class="card-header">
+                <h4><i class="bi bi-compass-fill text-info me-2"></i> Lộ trình Kỹ năng Đề xuất</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Dựa trên phân tích thị trường, đây là các kỹ năng bạn nên học để tăng 25-40% khả năng được gọi phỏng vấn. (Hãy bấm nút "Job phù hợp với bạn" ở dưới để AI tạo lộ trình).</p>
+
+                <div id="learning-plan-container" class="mt-3">
+                    <p class="text-muted text-center fst-italic">Bấm nút "Job phù hợp" để tạo lộ trình.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center d-flex flex-wrap justify-content-center gap-3 my-4">
+
+            <a asp-action="DownloadAnalysisReport" asp-controller="Cv" asp-route-id="@Model.Id" class="btn btn-primary btn-lg">
+                <i class="bi bi-download"></i> Tải bản PDF
+            </a>
+            <a asp-action="Start" asp-controller="Interview" asp-route-cvId="@Model.Id" class="btn btn-primary btn-lg shadow">
+                <i class="bi bi-chat-dots-fill"></i> Phỏng vấn thử với AI
+            </a>
+            <a asp-action="Upload" asp-controller="Cv" class="btn btn-outline-secondary btn-lg"><i class="bi bi-arrow-repeat"></i> Chấm điểm CV khác</a>
+            <a href="#" class="btn btn-outline-secondary btn-lg"><i class="bi bi-share"></i> Chia sẻ kết quả</a>
+            <button id="btn-analyze-market" class="btn btn-success btn-lg" data-cv-id="@Model.Id">
+                <i class="bi bi-briefcase"></i> Job phù hợp với bạn
+            </button>
+        </div>
+
+        <div id="market-analysis-result" class="mt-4" style="display: none;"></div>
+
+        <div id="dashboard-container" class="mt-4" style="display: none;">
+        </div>
+
+        <div id="relevant-jobs-container" class="mt-4" style="display: none;">
+        </div>
+
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            <h4><i class="bi bi-search"></i> Chưa có dữ liệu</h4>
+            <p>Không có kết quả phân tích nào để hiển thị.</p>
+        </div>
+    }
+
+    <div class="text-center my-5 border-top pt-4">
+        <a asp-action="Edit" asp-controller="Cv" asp-route-id="@Model.Id" class="btn btn-info">
+            <i class="bi bi-pencil-square"></i> Chỉnh sửa & Hoàn thiện
+        </a>
+        <a asp-action="History" asp-controller="Cv" class="btn btn-outline-secondary">Xem lịch sử</a>
+    </div>
+</div>
+
+@section Styles
+{
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+       
+        .score-gauge-value {
+            font-size: 3.5rem;
+            font-weight: 700;
+        }
+
+        .score-gauge-total {
+            font-size: 1rem;
+            color: var(--bs-secondary-color);
+        }
+
+        .score-gauge-rating {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .rating-poor {
+            color: var(--bs-danger);
+        }
+
+        .rating-medium {
+            color: var(--bs-warning);
+        }
+
+        .rating-good {
+            color: var(--bs-success);
+        }
+
+        .stage-summary-box {
+            border: 1px solid var(--bs-border-color-translucent);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            background-color: var(--bs-tertiary-bg);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+            .stage-summary-box:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            }
+
+            .stage-summary-box .stage-title {
+                font-size: 0.9rem;
+                font-weight: 500;
+                color: var(--bs-secondary-color);
+                margin-bottom: 0.5rem;
+            }
+
+            .stage-summary-box .stage-score {
+                font-size: 1.75rem;
+                font-weight: 700;
+            }
+
+            .stage-summary-box .stage-rating {
+                font-weight: 600;
+            }
+
+        /* --- 3. Card chi tiết (cho từng giai đoạn) --- */
+        .analysis-card {
+            border-radius: 12px;
+            border: 1px solid var(--bs-border-color-translucent);
+            background-color: var(--bs-tertiary-bg);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+            .analysis-card .card-header {
+                background-color: transparent;
+                border-bottom: 1px solid var(--bs-border-color-translucent);
+                padding: 1rem 1.5rem;
+            }
+
+                .analysis-card .card-header h4 {
+                    margin-bottom: 0;
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                }
+
+            .analysis-card .card-body {
+                padding: 1.5rem;
+            }
+
+        /* --- 4. Sub-section (trong card chi tiết) --- */
+        .sub-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--bs-border-color-translucent);
+        }
+
+        .analysis-card .card-body .sub-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .sub-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+            .sub-section-header .title {
+                font-size: 1.1rem;
+                font-weight: 600;
+            }
+
+            .sub-section-header .score {
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
+        /* Card lồng bên trong (dùng cho Red Flag) */
+        .sub-section-card {
+            border: 1px solid var(--bs-border-color-translucent);
+            background-color: var(--bs-tertiary-bg);
+        }
+
+            .sub-section-card .card-header {
+                padding: 0.75rem 1.25rem;
+            }
+
+            .sub-section-card .card-body {
+                padding: 1.25rem;
+            }
+
+        .progress {
+            height: 10px;
+            border-radius: 10px;
+            background-color: var(--bs-border-color-translucent);
+        }
+
+        /* Chi tiết (bullet points) */
+        .details-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--bs-secondary-color);
+        }
+
+            .details-list li {
+                position: relative;
+                padding-left: 20px;
+                margin-bottom: 0.5rem;
+            }
+
+                .details-list li::before {
+                    content: "•";
+                    position: absolute;
+                    left: 0;
+                    font-size: 1.25rem;
+                    line-height: 1;
+                }
+
+        /* --- 5. Gợi ý cải thiện & Điểm mạnh --- */
+        .suggestion-priority-box {
+            border: 1px solid var(--bs-border-color-translucent);
+            background-color: var(--bs-tertiary-bg);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+            .suggestion-priority-box .title {
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+
+            .suggestion-priority-box .description {
+                font-size: 0.9rem;
+                color: var(--bs-secondary-color);
+            }
+
+            .suggestion-priority-box .badge {
+                float: right;
+                font-size: 0.75rem;
+                padding: 5px 8px;
+            }
+
+        .priority-high {
+            border-left: 4px solid var(--bs-danger);
+        }
+
+        .priority-medium {
+            border-left: 4px solid var(--bs-warning);
+        }
+
+        .priority-low {
+            border-left: 4px solid var(--bs-success);
+        }
+
+        /* Điểm mạnh (bullet list) */
+        .strength-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+            .strength-list li {
+                position: relative;
+                padding-left: 30px;
+                margin-bottom: 0.75rem;
+            }
+
+                .strength-list li::before {
+                    content: "✓";
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 20px;
+                    height: 20px;
+                    background-color: var(--bs-success-bg-subtle);
+                    color: var(--bs-success);
+                    border-radius: 50%;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    font-weight: bold;
+                    font-size: 0.9rem;
+                }
+
+        /* CSS cho kết quả viết lại AI */
+        .ai-rewrite-result .alert {
+            background-color: var(--bs-primary-bg-subtle) !important;
+            color: var(--bs-primary-text-emphasis) !important;
+            border-color: var(--bs-primary-border-subtle) !important;
+        }
+
+        [data-bs-theme="dark"] .ai-rewrite-result .alert {
+            background-color: var(--bs-primary-bg-subtle) !important;
+            color: var(--bs-primary-text-emphasis) !important;
+        }
+
+        .ai-rewrite-result .alert strong {
+            color: var(--bs-primary-text-emphasis) !important;
+        }
+
+        /* Hover effect cho Job Card */
+        .job-card-hover:hover {
+            background-color: var(--bs-tertiary-bg) !important;
+            border-color: var(--bs-primary) !important;
+            transform: translateY(-2px);
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // === HÀM HELPER ĐÃ ĐƯỢC NÂNG CẤP GIAO DIỆN ===
+        function drawTopSkillsChart(chartData) {
+            const canvas = document.getElementById('topSkillsChart');
+            if (!canvas || !chartData || chartData.labels.length === 0) {
+                document.getElementById('dashboard-container').innerHTML = '<div class="alert alert-secondary">Không có đủ dữ liệu để vẽ biểu đồ kỹ năng.</div>';
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            // Xóa biểu đồ cũ (nếu có) để vẽ lại
+            const existingChart = Chart.getChart(ctx);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
+            // --- 1. NÂNG CẤP MÀU SẮC: Tạo Gradient ---
+            const gradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+            gradient.addColorStop(0, 'rgba(79, 70, 229, 0.7)'); // Màu #4f46e5
+            gradient.addColorStop(1, 'rgba(124, 58, 237, 0.7)'); // Màu #7c3aed
+
+            // --- 2. NÂNG CẤP MÀU CHỮ: Lấy màu chữ dựa trên theme ---
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+            const tickColor = currentTheme === 'dark' ? '#e0e0e0' : '#333';
+            const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Tần suất xuất hiện',
+                        data: chartData.data,
+                        backgroundColor: gradient, // <-- Dùng gradient
+                        borderColor: 'rgba(124, 58, 237, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Biểu đồ cột ngang
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    // --- 3. NÂNG CẤP MÀU CHỮ & LƯỚI ---
+                    scales: {
+                        x: { // Trục số (ngang)
+                            ticks: {
+                                color: tickColor, // <-- Màu số
+                                beginAtZero: true
+                            },
+                            grid: {
+                                color: gridColor, // <-- Màu lưới
+                                borderColor: gridColor
+                            }
+                        },
+                        y: { // Trục kỹ năng (dọc)
+                            ticks: {
+                                color: tickColor // <-- Màu chữ kỹ năng
+                            },
+                            grid: {
+                                display: false // Ẩn lưới dọc
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                // Parse dữ liệu một lần
+                const analysisData = JSON.parse(@Html.Raw(Json.Serialize(Model.AnalysisResult ?? "{}")));
+
+                // === 1. VẼ BIỂU ĐỒ TỔNG QUAN (MAIN) ===
+                const mainChartCanvas = document.getElementById('mainScoreChart');
+                let mainScore = 0;
+                let mainColor = '#4f46e5'; // Màu tím mặc định
+
+                if(analysisData.jd_match_analysis){
+                     mainScore = analysisData.jd_match_analysis.match_score || 0;
+                } else {
+                    mainScore = analysisData.overall_score || 0;
+                }
+
+                // Đổi màu biểu đồ dựa trên điểm
+                 if (mainScore >= 75) { mainColor = '#198754'; } // Green
+                else if (mainScore >= 50) { mainColor = '#ffc107'; } // Yellow
+                else { mainColor = '#dc3545'; } // Red
+
+                if (mainChartCanvas) {
+                    new Chart(mainChartCanvas.getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                             datasets: [{
+                                data: [mainScore, 100 - mainScore],
+                                backgroundColor: [mainColor, '#e9ecef'],
+                                 borderWidth: 0,
+                                borderRadius: 5
+                            }]
+                         },
+                        options: {
+                            cutout: '80%',
+                            plugins: { tooltip: { enabled: false } },
+                             events: [] // Tắt tất cả sự kiện
+                        }
+                    });
+                }
+
+                // === LOGIC "VIẾT LẠI BẰNG AI" (GIỮ NGUYÊN) ===
+                document.querySelectorAll('.btn-ai-rewrite').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const btn = this;
+                        const originalText = btn.getAttribute('data-original-text');
+                        const index = btn.getAttribute('data-index');
+                        const resultContainer = document.getElementById(`rewrite-result-${index}`);
+
+                        // 1. Hiển thị loading
+                        btn.disabled = true;
+                        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang viết lại...`;
+                        resultContainer.style.display = 'block';
+                        resultContainer.innerHTML = '<p class="text-muted text-center fst-italic">AI đang phân tích: "' + originalText + '"...</p>';
+
+                        // 2. Gọi API thật
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        if (!tokenEl) {
+                             resultContainer.innerHTML = `<div class="alert alert-danger"><strong>Lỗi!</strong> Không tìm thấy Anti-Forgery Token.</div>`;
+                             btn.disabled = false;
+                             btn.innerHTML = `<i class="bi bi-magic"></i> Thử lại`;
+                             return;
+                        }
+                        const token = tokenEl.value;
+                        fetch(`/Cv/RewriteSuggestion`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': token
+                            },
+                            body: JSON.stringify({ SuggestionText: originalText })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Lỗi khi gọi AI. Vui lòng thử lại.');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // Dữ liệu thật từ AI
+                            const rewrittenText = `
+                                <div class='alert'>
+                                    <strong><i class="bi bi-check-circle-fill"></i> AI đề xuất:</strong>
+                                    <p class="mb-0 mt-1">""${data.newText}""</p>
+                                    <small><em>(AI đã viết lại dựa trên câu văn gốc)</em></small>
+                                </div>
+                            `;
+                            // 3. Hiển thị kết quả
+                            resultContainer.innerHTML = rewrittenText;
+                            btn.style.display = 'none'; // Ẩn nút
+                        })
+                        .catch(error => {
+                            resultContainer.innerHTML = `<div class='alert alert-danger'>${error.message}</div>`;
+                            btn.disabled = false;
+                            btn.innerHTML = `<i class="bi bi-magic"></i> Thử lại`;
+                        });
+                    });
+                });
+
+                // === LOGIC PHÂN TÍCH THỊ TRƯỜNG & HIỂN THỊ JOB (CẬP NHẬT MỚI) ===
+                const analyzeButton = document.getElementById('btn-analyze-market');
+                const resultContainer = document.getElementById('market-analysis-result');
+                const learningContainer = document.getElementById('learning-plan-container');
+                const dashboardContainer = document.getElementById('dashboard-container');
+
+                // [MỚI] Lấy element container job
+                const jobsContainer = document.getElementById('relevant-jobs-container');
+
+                if (analyzeButton) {
+                    analyzeButton.addEventListener('click', function () {
+                        const cvId = this.getAttribute('data-cv-id');
+                        this.disabled = true;
+                        this.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang phân tích...`;
+
+                        // Hiển thị loading cho cả 4 container
+                        resultContainer.style.display = 'block';
+                        dashboardContainer.style.display = 'block';
+                        jobsContainer.style.display = 'block'; // [MỚI] Hiện container
+
+                        learningContainer.innerHTML = '<div class="text-center p-3"><span class="spinner-border spinner-border-sm" role="status"></span><p class="mt-2 mb-0 text-muted">Đang tạo lộ trình...</p></div>';
+                        resultContainer.innerHTML = '<div class="card shadow-sm"><div class="card-body text-center p-5"><span class="spinner-border" role="status"></span><p class="mt-3 mb-0 text-muted">Đang so sánh với thị trường...</p></div></div>';
+                        dashboardContainer.innerHTML = '<div class="card shadow-sm"><div class="card-body text-center p-5"><span class="spinner-border" role="status"></span><p class="mt-3 mb-0 text-muted">Đang tải biểu đồ...</p></div></div>';
+
+                        // [MỚI] Loading cho Job List
+                        jobsContainer.innerHTML = '<div class="card shadow-sm"><div class="card-body text-center p-5"><span class="spinner-border" role="status"></span><p class="mt-3 mb-0 text-muted">Đang tìm việc làm phù hợp...</p></div></div>';
+
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        if (!tokenEl) {
+                             resultContainer.innerHTML = `<div class="alert alert-danger"><strong>Lỗi!</strong> Không tìm thấy Anti-Forgery Token.</div>`;
+                             dashboardContainer.style.display = 'none';
+                             learningContainer.innerHTML = '';
+                             jobsContainer.style.display = 'none';
+                             this.disabled = false;
+                             this.innerHTML = `<i class="bi bi-briefcase"></i> Thử lại`;
+                             return;
+                        }
+                        const token = tokenEl.value;
+                        fetch(`/Cv/GetMarketAnalysis/${cvId}`, {
+                            method: 'POST',
+                            headers: { 'RequestVerificationToken': token, 'Content-Type': 'application/json' }
+                        })
+                        .then(response => {
+                            if (!response.ok) { return response.json().then(err => { throw new Error(err.message || 'Lỗi server.'); }); }
+                            return response.json();
+                        })
+                        .then(data => {
+
+                            if (data.status === 'crawling') {
+                                // TRƯỜNG HỢP 1: ĐANG CRAWL
+                                resultContainer.innerHTML = `
+                                    <div class="alert alert-info" role="alert">
+                                        <h4 class="alert-heading">
+                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                            Đang thu thập dữ liệu...
+                                        </h4>
+                                        <p>${data.message}</p>
+                                        <hr>
+                                        <p class="mb-0">Vui lòng thử lại sau 2-3 phút.</p>
+                                    </div>`;
+                                learningContainer.innerHTML = '<p class="text-muted fst-italic">Lộ trình sẽ được tạo sau khi có dữ liệu thị trường.</p>';
+                                dashboardContainer.style.display = 'none'; // Ẩn dashboard nếu đang crawl
+                                jobsContainer.style.display = 'none'; // Ẩn job
+
+                                analyzeButton.disabled = false;
+                                analyzeButton.innerHTML = `<i class="bi bi-arrow-clockwise"></i> Thử lại sau 2 phút`;
+                            }
+                            else {
+                                // TRƯỜNG HỢP 2: CÓ DỮ LIỆU
+
+                                // === PHẦN 1: RENDER KẾT QUẢ SO SÁNH ===
+                                let marketHtml = `
+                                    <div class="analysis-card shadow-sm">
+                                        <div class="card-header">
+                                             <h4>Kết quả Phân tích Thị trường</h4>
+                                        </div>
+                                        <div class="card-body p-4">
+                                            <h5 class="text-center mb-3">${data.summary}</h5>
+                                            <div class="progress" style="height: 30px;" role="progressbar" aria-valuenow="${data.marketFitScore}" aria-valuemin="0" aria-valuemax="100">
+                                                 <div class="progress-bar bg-primary fw-bold fs-6" style="width: ${data.marketFitScore}%">${data.marketFitScore}% Tương thích</div>
+                                            </div>
+                                             <div class="row mt-4">
+                                                <div class="col-md-6">
+                                                     <h6><i class="bi bi-person-check-fill text-success"></i> Kỹ năng khớp với thị trường</h6>
+                                                     <ul class="list-group">
+                                                         ${data.matchedSkills.map(skill => `<li class="list-group-item">${skill}</li>`).join('') || '<li class="list-group-item text-muted">Chưa có kỹ năng nào trùng khớp.</li>'}
+                                                    </ul>
+                                                </div>
+                                                   <div class="col-md-6 mt-3 mt-md-0">
+                                                    <h6><i class="bi bi-card-list text-info"></i> Top kỹ năng thị trường đang cần</h6>
+                                                    <ul class="list-group">
+                                                        ${
+                                                            
+                                                            (data.marketSkillsAnalysis || data.topMarketSkills.map(s => ({ name: s, isMatched: false }))).map(item => {
+                
+                                                                // Nếu dùng data cũ thì item là string, nếu dùng data mới thì item là object { name, isMatched }
+                                                                const skillName = item.name || item; 
+                                                                const isMatched = item.isMatched !== undefined ? item.isMatched : 
+                                                                                  // Fallback logic cũ (chỉ khi backend chưa update xong)
+                                                                                  data.matchedSkills.map(s => s.toLowerCase()).includes(skillName.toLowerCase());
+
+                                                                return `<li class="list-group-item d-flex justify-content-between align-items-center ${isMatched ? '' : 'list-group-item-warning'}">
+                                                                    ${isMatched ? skillName : `<strong>${skillName}</strong>`}
+                                                                    ${isMatched 
+                                                                        ? '<i class="bi bi-check-circle-fill text-success" title="Đã có trong CV (Khớp ngữ nghĩa)"></i>' 
+                                                                        : '<span class="badge bg-warning text-dark">Cần bổ sung</span>'}
+                                                                </li>`;
+                                                            }).join('') || '<li class="list-group-item text-muted">Chưa có dữ liệu thị trường.</li>'
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                resultContainer.innerHTML = marketHtml;
+
+                                // === PHẦN 2: RENDER LỘ TRÌNH HỌC TẬP ===
+                                if (data.learningPlan && data.learningPlan.length > 0) {
+                                     let learningHtml = `
+                                        <div class="list-group">
+                                            ${data.learningPlan.map(step => `
+                                                <div class="list-group-item">
+                                                    <h6 class="mb-1">${step.title}</h6>
+                                                    <p class="mb-1 text-muted">${step.description}</p>
+                                                </div>`).join('')}
+                                        </div>`;
+                                    learningContainer.innerHTML = learningHtml;
+                                } else {
+                                    learningContainer.innerHTML = '<p class="text-muted fst-italic">CV của bạn đã tốt, không có lộ trình học tập đề xuất.</p>';
+                                }
+
+                                // === PHẦN 3: RENDER DASHBOARD ===
+                                dashboardContainer.style.display = 'block';
+                                dashboardContainer.innerHTML = `
+                                    <div class="analysis-card shadow-sm">
+                                        <div class="card-header">
+                                            <h4><i class="bi bi-bar-chart-line-fill me-2"></i> Dashboard Kỹ năng (Top 10)</h4>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="topSkillsChart"></canvas>
+                                        </div>
+                                    </div>`;
+                                drawTopSkillsChart(data.topSkillsChart);
+
+                                // === [MỚI] PHẦN 4: RENDER DANH SÁCH JOB ===
+                                if (data.relevantJobs && data.relevantJobs.length > 0) {
+                                    let jobsHtml = `
+                                        <div class="analysis-card shadow-sm">
+                                            <div class="card-header border-0 bg-transparent pb-0">
+                                                <h4 class="fw-bold"><i class="bi bi-briefcase-fill text-primary me-2"></i> Việc làm đề xuất cho bạn</h4>
+                                                <p class="text-muted small mt-1">Dựa trên sự phù hợp về kỹ năng và địa điểm</p>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="list-group list-group-flush">
+                                    `;
+
+                                    data.relevantJobs.forEach(job => {
+                                                jobsHtml += `
+                                                <a href="${job.link || '#'}" target="_blank" class="list-group-item list-group-item-action p-3 border rounded mb-2 position-relative job-card-hover" style="transition: all 0.2s; text-decoration: none;">
+                                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                                        <h5 class="mb-1 fw-bold text-primary">${job.jobTitle || 'Chưa có tiêu đề'}</h5>
+                                                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3">${job.salary || 'Thương lượng'}</span>
+                                                    </div>
+
+                                                    <p class="mb-1 fw-bold" style="color: #b0b3b8;">${job.companyName || 'Công ty ẩn danh'}</p>
+
+                                                    <div class="d-flex align-items-center text-muted small mt-2">
+                                                        <span class="me-3"><i class="bi bi-geo-alt-fill me-1"></i> ${job.location || 'N/A'}</span>
+                                                        <span><i class="bi bi-bar-chart-fill me-1"></i> ${job.level || 'N/A'}</span>
+                                                        <span class="ms-auto text-primary fw-bold"><i class="bi bi-box-arrow-up-right"></i> Ứng tuyển ngay</span>
+                                                    </div>
+                                                </a>
+                                            `;
+                                    });
+
+                                    jobsHtml += `</div></div></div>`;
+                                    jobsContainer.innerHTML = jobsHtml;
+                                } else {
+                                    jobsContainer.innerHTML = '<div class="alert alert-secondary text-center">Chưa tìm thấy việc làm phù hợp trong hệ thống.</div>';
+                                }
+
+                                // Reset nút bấm
+                                analyzeButton.disabled = false;
+                                analyzeButton.innerHTML = `<i class="bi bi-briefcase"></i> So sánh lại Job khác`;
+                            }
+
+                            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        })
+                        .catch(error => {
+                            resultContainer.innerHTML = `<div class="alert alert-danger"><strong>Lỗi!</strong> ${error.message}</div>`;
+                             learningContainer.innerHTML = `<div class="alert alert-warning">Không thể tải lộ trình.</div>`;
+                            dashboardContainer.style.display = 'none'; // Ẩn dashboard khi lỗi
+                            jobsContainer.style.display = 'none'; // Ẩn job khi lỗi
+
+                            analyzeButton.disabled = false;
+                            analyzeButton.innerHTML = `<i class="bi bi-briefcase"></i> Thử lại`;
+                        });
+                    });
+                }
+
+            } catch (e) { console.error("Lỗi parse JSON hoặc vẽ biểu đồ.", e); }
+        });
+    </script>
+}

@@ -1,0 +1,168 @@
+﻿<!DOCTYPE html>
+<html lang="vi" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - CV Analyzer</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm fixed-top navbar-custom shadow-sm" id="mainNavbar">
+            <div class="container">
+                <a class="navbar-brand fw-bolder fs-4" asp-controller="Home" asp-action="Index">
+                    <span class="text-gradient">CV Analyzer</span>
+                </a>
+
+                <button class="navbar-toggler border-0 p-2" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between align-items-center">
+                    <ul class="navbar-nav flex-grow-1 ms-lg-4 gap-2">
+                        <li class="nav-item">
+                            <a class="nav-link fw-medium" asp-controller="Home" asp-action="Index">Trang Chủ</a>
+                        </li>
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link fw-medium" asp-controller="Cv" asp-action="Upload">Phân tích CV</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link fw-medium" asp-controller="Cv" asp-action="History">Lịch sử</a>
+                            </li>
+                            @if (User.IsInRole("HR"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link fw-medium" asp-controller="JobPosting" asp-action="Index">Dashboard HR</a>
+                                </li>
+                            }
+                        }
+                    </ul>
+
+                    <ul class="navbar-nav gap-2 align-items-center mt-3 mt-sm-0">
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle fw-bold d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-person-circle fs-5 text-primary"></i>
+                                    <span>@User.Identity.Name</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 rounded-3 mt-2">
+                                    <li><a class="dropdown-item rounded-2 py-2" asp-controller="Account" asp-action="ChangePassword">Đổi mật khẩu</a></li>
+                                    <li>
+                                        <a class="dropdown-item rounded-2 py-2" href="#" id="theme-toggle">
+                                            <i class="bi bi-moon-stars-fill me-2"></i>Chuyển giao diện
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider my-2"></li>
+                                    <li>
+                                        <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
+                                            <button type="submit" class="dropdown-item rounded-2 text-danger fw-medium py-2">
+                                                <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link fw-medium px-3" asp-controller="Auth" asp-action="Login">Đăng Nhập</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" asp-controller="Auth" asp-action="Register">
+                                    Đăng Ký
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div style="padding-top: 80px; min-height: calc(100vh - 160px);">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer mt-auto py-5 bg-body-tertiary text-muted">
+        <div class="container">
+            <div class="row g-5">
+
+                <div class="col-lg-4 col-md-6 mb-4 mb-lg-0">
+                    <a asp-controller="Home" asp-action="Index" class="d-flex align-items-center mb-3 link-body-emphasis text-decoration-none">
+                        <span class="fs-4 fw-bold text-gradient">CV Analyzer</span>
+                    </a>
+                    <p class="text-secondary mb-4 small" style="line-height: 1.6;">
+                        Công cụ hỗ trợ tối ưu hóa hồ sơ ứng tuyển sử dụng trí tuệ nhân tạo tiên tiến, giúp bạn nổi bật trong mắt nhà tuyển dụng hàng đầu.
+                    </p>
+                    <div class="d-flex gap-3">
+                        <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="bi bi-facebook"></i></a>
+                        <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="bi bi-linkedin"></i></a>
+                        <a href="#" class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="bi bi-github"></i></a>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                    <h6 class="text-uppercase fw-bold mb-3 text-body">Liên kết nhanh</h6>
+                    <ul class="list-unstyled mb-0 small" style="line-height: 2.2;">
+                        <li><a asp-controller="Home" asp-action="Index" class="text-decoration-none text-secondary hover-link">Trang chủ</a></li>
+                        <li><a asp-controller="Cv" asp-action="Upload" class="text-decoration-none text-secondary hover-link">Phân tích CV</a></li>
+                        <li><a href="#" class="text-decoration-none text-secondary hover-link">Về chúng tôi</a></li>
+                        <li><a href="#" class="text-decoration-none text-secondary hover-link">Điều khoản sử dụng</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-5 col-md-12">
+                    <h6 class="text-uppercase fw-bold mb-3 text-body">Thông tin liên hệ</h6>
+                    <ul class="list-unstyled mb-0 small" style="line-height: 2;">
+                        <li class="d-flex mb-3">
+                            <i class="bi bi-geo-alt-fill text-primary me-3 mt-1"></i>
+                            <span>Tòa nhà Innovation, Khu Công Nghệ Cao, Tp. Thủ Đức, TP. Hồ Chí Minh</span>
+                        </li>
+                        <li class="d-flex mb-3">
+                            <i class="bi bi-envelope-fill text-primary me-3 mt-1"></i>
+                            <a href="mailto:contact@cvanalyzer.com" class="text-decoration-none text-secondary hover-link">contact@cvanalyzer.com</a>
+                        </li>
+                        <li class="d-flex mb-3">
+                            <i class="bi bi-telephone-fill text-primary me-3 mt-1"></i>
+                            <a href="tel:0901234567" class="text-decoration-none text-secondary hover-link">(+84) 90 123 4567</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr class="my-4 opacity-10">
+
+            <div class="row align-items-center small">
+                <div class="col-md-6 text-center text-md-start text-secondary">
+                    &copy; @DateTime.Now.Year CV Analyzer. All rights reserved.
+                </div>
+                <div class="col-md-6 text-center text-md-end mt-2 mt-md-0 text-secondary">
+                    Designed for Developers
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

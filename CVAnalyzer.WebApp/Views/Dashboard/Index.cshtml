@@ -1,0 +1,113 @@
+﻿@model CVAnalyzer.WebApp.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard Phân tích Thị trường";
+}
+
+<div class="container my-4">
+    <h1 class="display-4">Dashboard Thị trường</h1>
+    <p class="lead">Tổng quan về nhu cầu kỹ năng dựa trên dữ liệu crawl mới nhất.</p>
+
+    <div class="row g-4">
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5>Top 10 Kỹ năng IT (TP.HCM)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartItHcm"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5>Top 10 Kỹ năng Marketing (Hà Nội)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartMarketingHn"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5>Tổng nhu cầu (Frequency) theo Ngành</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartCategoryCompare"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            
+            const viewModel = @Html.Raw(Json.Serialize(Model));
+
+            // 4. Hàm helper để vẽ biểu đồ
+            function createBarChart(canvasId, chartData, chartLabel) {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx || !chartData || chartData.labels.length === 0) return;
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            label: chartLabel,
+                            data: chartData.data,
+                            backgroundColor: 'rgba(79, 70, 229, 0.7)', // Màu tím
+                            borderColor: 'rgba(79, 70, 229, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Biểu đồ cột ngang (tốt hơn cho Top 10)
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            // 5. Hàm helper để vẽ biểu đồ tròn
+            function createPieChart(canvasId, chartData, chartLabel) {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx || !chartData || chartData.labels.length === 0) return;
+
+                new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            label: chartLabel,
+                            data: chartData.data,
+                            backgroundColor: [
+                                'rgba(79, 70, 229, 0.7)',  // Tím
+                                'rgba(34, 197, 94, 0.7)', // Xanh lá
+                                'rgba(255, 193, 7, 0.7)'  // Vàng
+                            ]
+                        }]
+                    },
+                    options: { responsive: true }
+                });
+            }
+
+            // 6. Vẽ các biểu đồ
+            createBarChart('chartItHcm', viewModel.topSkillsItHcm, 'Tần suất');
+            createBarChart('chartMarketingHn', viewModel.topSkillsMarketingHn, 'Tần suất');
+            createPieChart('chartCategoryCompare', viewModel.categoryComparison, 'Tổng tần suất');
+        });
+    </script>
+}

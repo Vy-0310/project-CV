@@ -1,0 +1,559 @@
+﻿@model CVAnalyzer.WebApp.ViewModels.InterviewSessionViewModel
+
+@{
+    ViewData["Title"] = "Phỏng vấn chuyên sâu";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Interviewer - @Model.CandidateName</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-bg: #1e1e24;
+            --main-bg: #ffffff;
+            --user-msg-bg: #f3f4f6;
+            --ai-msg-bg: #ffffff;
+            --accent-color: #2563eb;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background-color: var(--main-bg);
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            color: #e2e2e5;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #333;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #9ca3af;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 0.95rem;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-exit {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            transition: 0.2s;
+        }
+
+            .btn-exit:hover {
+                background: rgba(255,255,255,0.2);
+                color: #fff;
+            }
+
+        /* --- MAIN CHAT --- */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--main-bg);
+            position: relative;
+        }
+
+        .chat-window {
+            flex: 1;
+            padding: 40px 0;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Bubbles */
+        .message-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+        @@keyframes fadeIn {
+            from
+
+        {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.2rem;
+        }
+
+        .ai .avatar {
+            background-color: #10a37f;
+            color: white;
+        }
+
+        .user .avatar {
+            background-color: #5b5f68;
+            color: white;
+        }
+
+        .message-content {
+            flex: 1;
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #111827;
+            padding-top: 4px;
+        }
+
+        .sender-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            color: #374151;
+        }
+
+        /* Feedback Colors */
+        .feedback-card {
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            display: flex;
+            gap: 10px;
+            border-left: 4px solid transparent;
+        }
+
+        .feedback-positive {
+            background-color: #f0fdf4;
+            border-color: #f0fdf4;
+            border-left-color: #22c55e;
+            color: #15803d;
+        }
+
+        .feedback-neutral {
+            background-color: #fffbeb;
+            border-color: #fffbeb;
+            border-left-color: #f59e0b;
+            color: #b45309;
+        }
+
+        .feedback-negative {
+            background-color: #fef2f2;
+            border-color: #fef2f2;
+            border-left-color: #ef4444;
+            color: #b91c1c;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 20px;
+            background-color: var(--main-bg);
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: center;
+        }
+
+        .input-wrapper {
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        #user-answer {
+            flex: 1;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 12px 15px;
+            resize: none;
+            max-height: 150px;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: 0.2s;
+        }
+
+            #user-answer:focus {
+                border-color: var(--accent-color);
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            }
+
+        .btn-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            flex-shrink: 0;
+        }
+
+        #btn-send {
+            background: var(--accent-color);
+            color: white;
+        }
+
+            #btn-send:hover {
+                background: #1d4ed8;
+            }
+
+        #btn-mic {
+            background: #f3f4f6;
+            color: #1f2937;
+            border: 1px solid #d1d5db;
+        }
+
+            #btn-mic:hover {
+                background: #e5e7eb;
+            }
+
+            #btn-mic.recording {
+                background: #fee2e2;
+                color: #ef4444;
+                border-color: #fca5a5;
+                animation: pulseRed 1.5s infinite;
+            }
+        @@keyframes pulseRed {
+            0%
+
+        {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        }
+
+        }
+
+        /* Typing Dots */
+        .typing span {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            background: #6b7280;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: blink 1.5s infinite both;
+        }
+
+            .typing span:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+
+            .typing span:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+        @@keyframes blink {
+            0%, 100%
+
+        {
+            opacity: 0.2;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        }
+
+        @@media (max-width: 768px) {
+            .sidebar
+
+        {
+            display: none;
+        }
+
+        .chat-container {
+            padding: 0 15px;
+        }
+
+        }
+    </style>
+</head>
+<body>
+    @Html.AntiForgeryToken()
+
+    <div class="sidebar">
+        <div class="sidebar-header"><i class="bi bi-robot me-2"></i> AI Interviewer</div>
+        <div class="sidebar-content">
+            <div class="info-label">Ứng viên</div><div class="info-value">@Model.CandidateName</div>
+            <div class="info-label">Vị trí</div><div class="info-value">@Model.JobCategory</div>
+            <div class="info-label">Hồ sơ</div><div class="info-value text-truncate">@Model.CvFileName</div>
+            <div class="mt-4 text-success small"><i class="bi bi-circle-fill" style="font-size: 8px;"></i> Voice Enabled</div>
+        </div>
+        <div class="sidebar-footer">
+            <a asp-controller="Cv" asp-action="Result" asp-route-id="@Model.CvId" class="btn-exit">Kết thúc</a>
+        </div>
+    </div>
+
+    <div class="main-chat">
+        <div class="chat-window" id="chat-window">
+            <div class="chat-container" id="chat-content">
+                @if (!string.IsNullOrEmpty(Model.FirstQuestion))
+                {
+                    <div class="message-row ai">
+                        <div class="avatar"><i class="bi bi-cpu"></i></div>
+                        <div class="message-content">
+                            <div class="sender-name">AI Recruiter <i class="bi bi-volume-up-fill ms-1 text-primary cursor-pointer" onclick="playText('@System.Web.HttpUtility.JavaScriptStringEncode(Model.FirstQuestion)')"></i></div>
+                            <div>@Model.FirstQuestion</div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="chat-container">
+                <div id="ai-typing" class="message-row ai" style="display: none;">
+                    <div class="avatar"><i class="bi bi-cpu"></i></div>
+                    <div class="message-content"><div class="sender-name">AI Recruiter</div><div class="typing"><span></span><span></span><span></span></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <button id="btn-mic" class="btn-icon" title="Nhấn để nói"><i class="bi bi-mic-fill"></i></button>
+                <textarea id="user-answer" rows="1" placeholder="Nhập câu trả lời..."></textarea>
+                <button id="btn-send" class="btn-icon"><i class="bi bi-send-fill"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio-player" style="display:none;"></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const chatContent = document.getElementById('chat-content');
+            const chatWindow = document.getElementById('chat-window');
+            const userInput = document.getElementById('user-answer');
+            const btnSend = document.getElementById('btn-send');
+            const btnMic = document.getElementById('btn-mic');
+            const typingIndicator = document.getElementById('ai-typing');
+            const audioPlayer = document.getElementById('audio-player');
+
+            let chatHistory = [];
+            let mediaRecorder;
+            let audioChunks = [];
+            let isRecording = false;
+
+            // Init history
+            const firstQ = "@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(Model.FirstQuestion))";
+            if(firstQ) chatHistory.push({ role: "assistant", content: firstQ });
+
+            // 1. GỬI TIN NHẮN
+            async function sendAnswer() {
+                const text = userInput.value.trim();
+                if (!text) return;
+
+                appendMessage('user', text);
+                chatHistory.push({ role: "user", content: text });
+
+                userInput.value = '';
+                userInput.style.height = 'auto';
+                showTyping(true);
+
+                try {
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    const response = await fetch('/Interview/SubmitAnswer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                        body: JSON.stringify({ CvId: @Model.CvId, History: chatHistory })
+                    });
+
+                    if (!response.ok) throw new Error("Network error");
+                    const data = await response.json();
+
+                    // Render AI Response
+                    renderAiResponse(data);
+                    chatHistory.push({ role: "assistant", content: data.nextQuestion });
+
+                    // Auto Play Audio
+                    playText(data.nextQuestion);
+
+                } catch (error) {
+                    console.error(error);
+                    appendMessage('ai', '⚠️ Mất kết nối.');
+                } finally {
+                    showTyping(false);
+                }
+            }
+
+            // 2. GHI ÂM (STT)
+            btnMic.addEventListener('click', async () => {
+                if (!isRecording) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+                        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                        mediaRecorder.onstop = async () => {
+                            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                            await sendAudio(blob);
+                        };
+                        mediaRecorder.start();
+                        isRecording = true;
+                        btnMic.classList.add('recording');
+                        btnMic.innerHTML = '<i class="bi bi-stop-fill"></i>';
+                        userInput.placeholder = "Đang nghe...";
+                    } catch (e) { alert("Không thể mở Micro."); }
+                } else {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    btnMic.classList.remove('recording');
+                    btnMic.innerHTML = '<i class="bi bi-mic-fill"></i>';
+                    userInput.placeholder = "Đang xử lý...";
+                }
+            });
+
+            async function sendAudio(blob) {
+                const formData = new FormData();
+                formData.append('audioFile', blob, 'recording.webm');
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                formData.append('__RequestVerificationToken', token);
+
+                try {
+                    const res = await fetch('/Interview/TranscribeAudio', { method: 'POST', body: formData });
+                    if(res.ok) {
+                        const data = await res.json();
+                        userInput.value = data.text;
+                        userInput.focus();
+                        userInput.placeholder = "Nhập câu trả lời...";
+                    }
+                } catch(e) { console.error(e); userInput.placeholder = "Lỗi nhận diện."; }
+            }
+
+            // 3. PHÁT ÂM THANH (TTS)
+            async function playText(text) {
+                try {
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    const res = await fetch('/Interview/TextToSpeech', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                        body: JSON.stringify({ text: text })
+                    });
+                    if(res.ok) {
+                        const blob = await res.blob();
+                        audioPlayer.src = URL.createObjectURL(blob);
+                        audioPlayer.play();
+                    }
+                } catch(e) { console.error(e); }
+            }
+            window.playText = playText; // Expose global
+
+            // UI HELPERS
+            function renderAiResponse(data) {
+                const div = document.createElement('div');
+                div.className = 'message-row ai';
+
+                let fbClass = 'feedback-neutral';
+                let icon = 'bi-lightbulb-fill';
+                if(data.sentiment === 'positive') { fbClass = 'feedback-positive'; icon = 'bi-check-circle-fill'; }
+                else if(data.sentiment === 'negative') { fbClass = 'feedback-negative'; icon = 'bi-exclamation-triangle-fill'; }
+
+                div.innerHTML = `
+                    <div class="avatar"><i class="bi bi-cpu"></i></div>
+                    <div class="message-content">
+                        <div class="sender-name">AI Recruiter</div>
+                        <div class="feedback-card ${fbClass}">
+                            <i class="bi ${icon} mt-1"></i>
+                            <div><strong>Nhận xét:</strong> ${data.feedback}</div>
+                        </div>
+                        <div>${data.nextQuestion.replace(/\n/g, '<br>')}</div>
+                        <div class="mt-2"><button class="btn btn-sm btn-link p-0 text-decoration-none" onclick="playText('${data.nextQuestion.replace(/'/g, "\\'")}')"><i class="bi bi-volume-up"></i> Nghe lại</button></div>
+                    </div>
+                `;
+                chatContent.appendChild(div);
+                scrollToBottom();
+            }
+
+            function appendMessage(role, content) {
+                const div = document.createElement('div');
+                div.className = `message-row ${role}`;
+                const icon = role === 'user' ? '<i class="bi bi-person-fill"></i>' : '<i class="bi bi-cpu"></i>';
+                const name = role === 'user' ? 'Bạn' : 'AI Recruiter';
+                div.innerHTML = `<div class="avatar">${icon}</div><div class="message-content"><div class="sender-name">${name}</div><div>${content.replace(/\n/g, '<br>')}</div></div>`;
+                chatContent.appendChild(div);
+                scrollToBottom();
+            }
+
+            function showTyping(show) { typingIndicator.style.display = show ? 'flex' : 'none'; if(show) scrollToBottom(); }
+            function scrollToBottom() { chatWindow.scrollTo(0, chatWindow.scrollHeight); }
+
+            btnSend.addEventListener('click', sendAnswer);
+            userInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnswer(); } });
+            userInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = (Math.min(this.scrollHeight, 150)) + 'px'; });
+        });
+    </script>
+</body>
+</html>

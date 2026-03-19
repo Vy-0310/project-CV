@@ -1,0 +1,42 @@
+﻿@using System.Text.Json
+@model CVAnalyzer.WebApp.Models.Cv
+@{
+    ViewData["Title"] = "Chỉnh sửa & Hoàn thiện CV";
+    var analysis = JsonSerializer.Deserialize<CVAnalyzer.WebApp.ViewModels.DetailedAnalysisViewModel>(Model.AnalysisResult ?? "{}");
+}
+
+<div class="text-center">
+    <h2 class="display-5">@ViewData["Title"]</h2>
+    <p class="lead text-muted">Đối chiếu gợi ý của AI và chỉnh sửa nội dung CV của bạn.</p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-7">
+        <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+            @Html.AntiForgeryToken()
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Nội dung CV của bạn</h5>
+                </div>
+                <div class="card-body">
+                    <textarea name="extractedText" class="form-control" style="height: 60vh; font-family: monospace;">@Model.ExtractedText</textarea>
+                </div>
+                <div class="card-footer text-end">
+                    <button type="submit" class="btn btn-success">Lưu thay đổi</button>
+                    <a asp-action="ExportAsPdf" asp-controller="Cv" asp-route-id="@Model.Id" class="btn btn-info" target="_blank">Xuất PDF</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-warning text-dark"><h5 class="mb-0">⚠️ Điểm cần cải thiện</h5></div>
+            <div class="card-body" style="white-space: pre-wrap;">@analysis.PrioritySuggestions</div>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white"><h5 class="mb-0">💡 Gợi ý cụ thể</h5></div>
+            <div class="card-body" style="white-space: pre-wrap;">@analysis.PrioritySuggestions</div>
+        </div>
+    </div>
+</div>
